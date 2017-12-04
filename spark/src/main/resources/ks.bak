@@ -1,0 +1,2 @@
+1.就清洗而言第一层用kafka回写方式
+2.就计算而言第二层用spark-streaming | spark-structed

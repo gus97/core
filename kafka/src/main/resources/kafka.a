@@ -1,0 +1,49 @@
+#kafka 命令
+
+gus|g01|g01
+---|---|---
+
+- consumer-describe
+> bin/kafka-consumer-groups.sh 
+--bootstrap-server 172.18.111.7:9092,172.18.111.8:9092,172.18.111.9:9092 
+--describe 
+--group gus001
+
+- topic-partition-offset
+> bin/kafka-run-class.sh kafka.tools.GetOffsetShell 
+--broker-list 172.18.111.7:9092,172.18.111.8:9092,172.18.111.9:9092 
+--topic test01 
+--time -1
+
+- producer
+> bin/kafka-console-producer.sh 
+--broker-list 172.18.111.7:9092,172.18.111.8:9092,172.18.111.9:9092 
+--topic spark01
+
+- consumer
+> bin/kafka-console-consumer.sh 
+--bootstrap-server 172.18.111.7:9092,172.18.111.8:9092,172.18.111.9:9092 
+--new-consumer 
+--topic spark01 
+[--from-beginning]
+
+- create topic
+> bin/kafka-topics.sh --create 
+--zookeeper 172.18.111.7:2181,172.18.111.8:2181,172.18.111.9:2181 
+--replication-factor 1 
+--partitions 1 
+--topic spark01
+
+- consumer set offset
+> bin/kafka-consumer-groups.sh 
+--bootstrap-server 172.18.111.7:9092,172.18.111.8:9092,172.18.111.7:9092
+  --describe  
+  --group test01
+> bin/kafka-consumer-groups.sh 
+--bootstrap-server 172.18.111.7:9092,172.18.111.8:9092,172.18.111.7:9092
+  --reset-offsets 
+  --all-topics 
+  --to-latest 
+  --execute 
+  --group gus001
+
