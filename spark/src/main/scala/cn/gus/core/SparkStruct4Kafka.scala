@@ -37,7 +37,7 @@ object SparkStruct4Kafka {
       .getOrCreate()
 
 
-    //import spark.implicits._
+    import spark.implicits._
 
     implicit val mapEncoder = org.apache.spark.sql.Encoders.kryo[Map[Any, String]]
 
@@ -61,7 +61,7 @@ object SparkStruct4Kafka {
     val schema = StructType(fields)
     val rowRDD = lines
       .map(_.split(","))
-      .map(x => Row(x(0), x(1), x(2), x(3), x(4)))
+      //.map(x => Row(x(0), x(1), x(2), x(3), x(4)))
     //spark.createDataFrame(rowRDD, schema).createOrReplaceTempView("foo")
     //==================================================================================================
 
