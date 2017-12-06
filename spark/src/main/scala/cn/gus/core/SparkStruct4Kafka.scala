@@ -1,13 +1,17 @@
 package cn.gus.core
 
+
 import org.apache.spark.sql.streaming.ProcessingTime
-import org.apache.spark.sql.types.{StringType, StructField, StructType}
-import org.apache.spark.sql.{ForeachWriter, Row, SparkSession}
+import org.apache.spark.sql.{ForeachWriter, Row, RowFactory, SparkSession}
+import org.apache.spark.sql.types.DataTypes
+import org.apache.spark.sql.types.StructField
+import java.util
 
-import scala.reflect.internal.util.TableDef.Column
-
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 object SparkStruct4Kafka {
+
+  case class Tracklog(dateday: String, datetime: String, ip: String)
 
 
   def main(args: Array[String]): Unit = {
@@ -39,35 +43,52 @@ object SparkStruct4Kafka {
 
     import spark.implicits._
 
-    implicit val mapEncoder = org.apache.spark.sql.Encoders.kryo[Map[Any, String]]
+    //implicit val mapEncoder = org.apache.spark.sql.Encoders.kryo[Map[String, Any]]
 
-    val checkpointLocation = "hdfs://172.18.111.3:9000/tmp/checkpointLocation-spark001"
+    //        val schema = StructType(
+    //          StructField("eno", StringType, nullable = false) ::
+    //            StructField("name", StringType, nullable = false) ::
+    //            StructField("age", StringType, nullable = false) ::
+    //            StructField("sal", StringType, nullable = false) ::
+    //            StructField("dno", StringType, nullable = false) ::Nil)
+
+
+    val checkpointLocation = "hdfs://172.18.111.3:9000/tmp/checkpointLocation-spark0077"
 
     val lines = spark
       .readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", "172.18.111.7:9092,172.18.111.8:9092,172.18.111.9:9092")
       .option("subscribe", "spark01")
-//      .schema(schema)
-        .load()
-      .selectExpr("CAST(value AS STRING)")
+      //      .schema(schema)
+      .load()
+      .selectExpr("CAST(value AS STRING) as id")
       .as[(String)]
 
     //==================================================================================================
 
-    val schemaString = "eno ename"
-    val fields = schemaString.split(" ")
-      .map(fieldName => StructField(fieldName, StringType))
-    val schema = StructType(fields)
-    val rowRDD = lines
-      .map(_.split(","))
-      //.map(x => Row(x(0), x(1), x(2), x(3), x(4)))
-    //spark.createDataFrame(rowRDD, schema).createOrReplaceTempView("foo")
+
+
+    val schemaString = "a,b,c"
+
+    // Generate the schema based on the string of schema
+    val fields = new util.ArrayList[StructField]
+    for (fieldName <- schemaString.split(",")) {
+      val field = DataTypes.createStructField(fieldName, DataTypes.StringType, true)
+      fields.add(field)
+    }
+    val schema = DataTypes.createStructType(fields)
+
+
+    //    var emp = spark.createDataFrame(rowRDD.rdd, schema)
+    //    emp.createOrReplaceTempView("emp")
+    //    val wordCounts = spark.sql("SELECT dno,sum(sal) as s_m FROM emp group by dno")
     //==================================================================================================
 
-    lines.map(_.split(",")).createOrReplaceTempView("foo")
+    //lines.map(_.split(",")).map(x => Tracklog(x(0), x(1), x(2))).toDF("a", "b", "c").createOrReplaceTempView("tb3")
+    lines.map(_.split(",")).filter(_.length==3).map(x => RowFactory.create(x(0), x(1), x(2)))(RowEncoder.apply(schema)).createOrReplaceTempView("foo")
 
-    val wordCounts = spark.sql("SELECT * FROM foo ")
+    val wordCounts = spark.sql("SELECT c,sum(b+a) FROM foo group by c ")
 
 
     //val wordCounts = lines.flatMap(_.split(" ")).groupBy("value").count
@@ -77,26 +98,30 @@ object SparkStruct4Kafka {
       * .option("startingOffsets", "earliest") \
       */
     // Start running the query that prints the running counts to the console
-    //var i = 0
+    var i = 0
     val query = wordCounts.writeStream.trigger(ProcessingTime(5000L))
       //complete,append,update
-      .outputMode("append")
+      .outputMode("update")
       .option("checkpointLocation", checkpointLocation)
       .foreach(new ForeachWriter[Row] {
 
         override def process(value: Row): Unit = {
 
-          println(value, "========>>", value.toSeq.mkString(","))
+          println(value.toSeq.mkString(","))
+
+
 
         }
 
         override def close(errorOrNull: Throwable): Unit = {
 
-
+          //println(Thread.currentThread().getId,"-------------->>",i)
         }
 
         override def open(partitionId: Long, version: Long): Boolean = {
 
+          //i += 1
+          //println(Thread.currentThread().getId,"================>>",i)
           true
         }
       }).start()
